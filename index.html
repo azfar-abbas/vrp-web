@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delivery Routing Demo</title>
+  <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css">
+  <style>
+    #map {
+      height: 500px;
+    }
+
+    .loader {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body>
+  <h1>Delivery Routing Demo</h1>
+  <input type="file" id="csvFile" accept=".csv">
+  <button id="uploadBtn">Upload</button>
+  <div id="map"></div>
+  <div id="loader" class="loader">
+    <img src="loader.gif" alt="Loading...">
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+  <script>
+    var map = L.map('map').setView([24.93297849, 67.01649538], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+      maxZoom: 18,
+    }).addTo(map);
+
+    var loader = document.getElementById('loader');
+
+    document.getElementById('uploadBtn').addEventListener('click', function () {
+      var fileInput = document.getElementById('csvFile');
+      var file = fileInput.files[0];
+
+      if (file) {
+        var formData = new FormData();
+        formData.append('batchDetailFile', file);
+
+        showLoader();
+
+        fetch('http://localhost:8090/routes', {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => processApiResponse(data))
+        .catch(error => console.error(error))
+        .finally(hideLoader);
+      } else {
+        alert('Please select a CSV file.');
+      }
+    });
+
+    function showLoader() {
+      loader.style.display = 'block';
+    }
+
+    function hideLoader() {
+      loader.style.display = 'none';
+    }
+
+    function processApiResponse(data) {
+      // Iterate over each tour in the API response
+      data.tours.forEach(function (tour, index) {
+        // Create a marker group for the tour
+        var tourMarkers = L.featureGroup().addTo(map);
+
+        // Iterate over each order in the tour
+        tour.orders.forEach(function (order) {
+          // Create a marker with the order's latitude and longitude
+          var marker = L.marker([order.latitude, order.longitude]);
+
+          // Add the marker to the tour marker group
+          marker.addTo(tourMarkers);
+        });
+
+        // Fit the map view to the bounds of the tour marker group
+        map.fitBounds(tourMarkers.getBounds());
+      });
+    }
+  </script>
+</body>
+</html>
